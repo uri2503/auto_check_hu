@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>HU-Vorab-Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #1a2332;
+    --paper: #f7f5f0;
+    --green: #2d8c5f;
+    --amber: #e0a83a;
+    --red: #c0392b;
+    --steel: #5b6b7d;
+    --card: #ffffff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+  }
+
+  header {
+    padding: 20px 20px 16px;
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .brand .dot { color: var(--amber); }
+
+  .key-btn {
+    background: rgba(247,245,240,0.1);
+    border: none;
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,35,50,0.55);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 24px;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 22px;
+    width: 100%;
+    max-width: 360px;
+  }
+  .modal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 8px;
+  }
+  .modal-text {
+    font-size: 13px;
+    color: var(--steel);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .modal-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #d4cfc4;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 8px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .modal-input:focus { outline: 2px solid var(--ink); border-color: transparent; }
+  .modal-error {
+    color: var(--red);
+    font-size: 12px;
+    min-height: 16px;
+    margin-bottom: 8px;
+  }
+  .modal-card .btn { margin-top: 4px; }
+  .modal-card .btn-skip { width: 100%; text-align: center; }
+
+  .progress-track {
+    display: flex;
+    gap: 4px;
+    margin-top: 14px;
+  }
+  .progress-seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(247,245,240,0.18);
+    transition: background 0.3s ease;
+  }
+  .progress-seg.done { background: var(--green); }
+  .progress-seg.active { background: var(--amber); }
+
+  .step-meta {
+    font-size: 12px;
+    color: rgba(247,245,240,0.6);
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  main {
+    flex: 1;
+    padding: 24px 20px 100px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .step-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .step-hint {
+    font-size: 14px;
+    color: var(--steel);
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  .upload-zone {
+    border: 2px dashed #d4cfc4;
+    border-radius: 16px;
+    background: var(--card);
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .upload-zone.has-image {
+    border-style: solid;
+    border-color: #d4cfc4;
+  }
+  .upload-zone img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .upload-zone .icon {
+    width: 48px;
+    height: 48px;
+    color: var(--steel);
+  }
+  .upload-zone .label {
+    font-size: 14px;
+    color: var(--steel);
+    font-weight: 500;
+  }
+  .upload-zone .retake {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    background: rgba(26,35,50,0.85);
+    color: var(--paper);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 20px;
+  }
+
+  input[type=file] { display: none; }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .photo-tile {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background: var(--card);
+  }
+  .photo-tile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-tile .remove-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(26,35,50,0.75);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .photo-tile.add-tile {
+    border: 2px dashed #d4cfc4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .photo-tile.add-tile .icon {
+    width: 28px;
+    height: 28px;
+    color: var(--steel);
+  }
+  .photo-grid-hint {
+    font-size: 12px;
+    color: var(--steel);
+    margin-top: 8px;
+  }
+
+  .free-text-input {
+    width: 100%;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1.5px solid #d4cfc4;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--card);
+    min-height: 84px;
+    resize: vertical;
+  }
+  .free-text-input:focus { outline: 2px solid var(--ink); border-color: transparent; }
+
+
+  .analysis-status {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--card);
+    font-size: 13px;
+    color: var(--steel);
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .analysis-status.visible { display: flex; }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e0d5;
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-card {
+    margin-top: 16px;
+    border-radius: 12px;
+    background: var(--card);
+    padding: 16px;
+    display: none;
+  }
+  .result-card.visible { display: block; }
+  .result-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .status-dot.green { background: var(--green); }
+  .status-dot.amber { background: var(--amber); }
+  .status-dot.red { background: var(--red); }
+  .result-text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 14px 20px 22px;
+    background: linear-gradient(to top, var(--paper) 70%, transparent);
+  }
+
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 14px;
+    border: none;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .btn-primary:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .btn-skip {
+    background: transparent;
+    color: var(--steel);
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 13px;
+    padding: 8px;
+    margin-top: 8px;
+    text-decoration: underline;
+  }
+
+  /* Report screen */
+  .report-header {
+    text-align: center;
+    padding: 8px 0 28px;
+  }
+  .plakette {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    border: 6px solid;
+    position: relative;
+  }
+  .plakette.green { border-color: var(--green); }
+  .plakette.amber { border-color: var(--amber); }
+  .plakette.red { border-color: var(--red); }
+  .plakette-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.2;
+    padding: 0 10px;
+  }
+  .report-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+  .report-sub {
+    font-size: 14px;
+    color: var(--steel);
+  }
+
+  .report-item {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .report-item-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .report-item-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .report-item-text {
+    font-size: 13px;
+    color: var(--steel);
+    line-height: 1.5;
+  }
+
+  .partner-note {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .partner-note strong {
+    display: block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .disclaimer {
+    margin-top: 16px;
+    font-size: 11px;
+    color: var(--steel);
+    line-height: 1.6;
+    text-align: center;
+    padding: 0 8px;
+  }
+
+  /* Intro screen */
+  .intro-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .intro-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .intro-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1.5px solid #e5e0d5;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .intro-item-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .intro-item-desc {
+    font-size: 12px;
+    color: var(--steel);
+    line-height: 1.4;
+  }
+  .intro-tip {
+    font-size: 12px;
+    color: var(--steel);
+    line-height: 1.6;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="brand-row">
+      <div class="brand">HU-Vorab<span class="dot">·</span>Check</div>
+      <button class="key-btn" id="keyBtn" title="API-Key">🔑</button>
+    </div>
+    <div class="progress-track" id="progressTrack"></div>
+    <div class="step-meta" id="stepMeta">SCHRITT 1 / 6</div>
+  </header>
+
+  <main id="main">
+    <!-- Dynamic content rendered here -->
+  </main>
+
+  <footer id="footer">
+    <button class="btn btn-primary" id="primaryBtn">Foto aufnehmen</button>
+  </footer>
+
+  <div class="modal-overlay" id="keyModal">
+    <div class="modal-card">
+      <div class="modal-title">API-Key</div>
+      <div class="modal-text">Für den Testbetrieb wird ein Anthropic API-Key benötigt. Der Key wird nur lokal auf diesem Gerät gespeichert.</div>
+      <input type="text" id="keyInput" class="modal-input" placeholder="sk-ant-..." autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="modal-error" id="keyError"></div>
+      <button class="btn btn-primary" id="keySaveBtn">Speichern</button>
+      <button class="btn-skip" id="keyCancelBtn">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------
+// HU-Vorab-Check — MVP
+// Single-file, ES5-compatible (iOS/Safari)
+// ---------------------------------------------------------
+
+// ---------------------------------------------------------
+// Partner-Konfiguration (Pilotstationen)
+// Aufruf z.B. mit ?partner=station1 oder ?partner=station2
+// ---------------------------------------------------------
+var PARTNER_CONFIG = {
+  station1: {
+    name: 'Mustermann KFZ-Prüfstelle',
+    contact: 'Tel. 0123 / 456789 · info@mustermann-pruefstelle.de',
+    address: 'Musterstraße 1, 12345 Musterstadt'
+  },
+  station2: {
+    name: 'Beispiel GTÜ-Prüfstelle',
+    contact: 'Tel. 0987 / 654321 · kontakt@beispiel-pruefstelle.de',
+    address: 'Beispielweg 2, 54321 Beispielort'
+  }
+};
+
+var DEFAULT_PARTNER = {
+  name: 'deiner Werkstatt',
+  contact: '',
+  address: ''
+};
+
+function getPartner() {
+  var params = new URLSearchParams(window.location.search);
+  var key = params.get('partner');
+  if (key && PARTNER_CONFIG[key]) {
+    return PARTNER_CONFIG[key];
+  }
+  return DEFAULT_PARTNER;
+}
+
+// ---------------------------------------------------------
+// API-Key Verwaltung (lokal im Browser, analog CrashGuide)
+// Nur für Pilot-/Testbetrieb mit wenigen Testern gedacht!
+// ---------------------------------------------------------
+function getApiKey() { return localStorage.getItem('huc_api_key') || ''; }
+function saveApiKey(k) { localStorage.setItem('huc_api_key', k.trim()); }
+
+var partner = getPartner();
+
+var CATEGORIES = [
+  {
+    id: 'eingang',
+    title: 'Eingangsfotos',
+    introText: 'Rundum-Fotos: Front, Seite links, Seite rechts, Heck',
+    hint: 'Fotografiere dein Fahrzeug rundum: einmal von vorne, von beiden Seiten und von hinten. Diese Fotos geben einen ersten Gesamteindruck.',
+    checkPoints: 'Gesamtzustand der Karosserie, Lackzustand, Stoßfänger, sichtbare Unfallspuren oder Vorschäden, Reifenzustand auf den Gesamtaufnahmen, allgemeiner Eindruck (gepflegt/ungepflegt)',
+    maxPhotos: 5
+  },
+  {
+    id: 'reifen',
+    title: 'Reifen',
+    introText: 'Foto vom Reifenprofil eines Vorderrads',
+    hint: 'Fotografiere ein Vorderrad von vorne, sodass Profil und Lauffläche gut sichtbar sind. Bitte mit guter Beleuchtung, möglichst senkrecht von oben auf das Profil.',
+    checkPoints: 'Profiltiefe, ungleichmäßige Abnutzung, Risse in der Flanke, sichtbare Beschädigungen, Alter (DOT-Nummer falls erkennbar)',
+    maxPhotos: 5
+  },
+  {
+    id: 'beleuchtung',
+    title: 'Beleuchtung',
+    introText: 'Foto der Leuchten bei eingeschaltetem Licht',
+    hint: 'Fotografiere die Front- und Heckleuchten bei eingeschaltetem Licht (Abblendlicht, Blinker, Rücklicht). Am besten in der Dämmerung oder Garage.',
+    checkPoints: 'Funktion aller Leuchtmittel, Zustand der Streuscheiben (Risse, Trübung, Kondenswasser), korrekte Befestigung',
+    maxPhotos: 5
+  },
+  {
+    id: 'bremsanlage',
+    title: 'Bremsanlage (sichtbar)',
+    introText: 'Foto der Bremsanlage durch die Felge',
+    hint: 'Fotografiere durch die Felge auf die Bremsscheibe und den Bremssattel, falls einsehbar. Sonst: allgemeines Foto vom Radkasten.',
+    checkPoints: 'Sichtbare Riefen oder Rost auf der Bremsscheibe, Zustand der Bremsbeläge falls erkennbar, Undichtigkeiten am Bremssattel',
+    maxPhotos: 5
+  },
+  {
+    id: 'karosserie',
+    title: 'Karosserie & Korrosion',
+    introText: 'Foto von Schwellern und Radläufen',
+    hint: 'Fotografiere Schweller, Radläufe und sichtbare Schweißnähte. Achte auf gute Beleuchtung, am besten von der Seite leuchten lassen.',
+    checkPoints: 'Durchrostung an tragenden Teilen, Schweller, Federaufnahmen, Domlager, größere Beulen oder Lackschäden mit Substanzverlust',
+    maxPhotos: 5
+  },
+  {
+    id: 'scheiben',
+    title: 'Scheiben & Wischer',
+    introText: 'Foto der Windschutzscheibe und Wischerblätter',
+    hint: 'Fotografiere die Windschutzscheibe von innen sowie die Wischerblätter von außen.',
+    checkPoints: 'Risse oder Steinschläge im Sichtfeld, Zustand der Wischerblätter, Funktion der Waschanlage (falls testbar)',
+    maxPhotos: 5
+  },
+  {
+    id: 'fahrwerk',
+    title: 'Fahrwerk / Stoßdämpfer',
+    introText: 'Foto der Stoßdämpfer von der Seite',
+    hint: 'Fotografiere die Stoßdämpfer von der Seite, möglichst nah, um Ölspuren oder Undichtigkeiten erkennen zu können.',
+    checkPoints: 'Ölaustritt an den Dämpfern, sichtbare Beschädigungen an Federn oder Lagern, Spuren von Anschlägen',
+    maxPhotos: 5
+  },
+  {
+    id: 'achsen',
+    title: 'Achsen / Achsträger',
+    introText: 'Foto von Vorder- und Hinterachse von unten',
+    hint: 'Fotografiere Vorder- und Hinterachse von unten (z.B. auf der Hebebühne oder mit Handy unter das Fahrzeug). Achsträger, Querlenker und Lagerstellen sollten erkennbar sein.',
+    checkPoints: 'Korrosion oder Anrisse am Achsträger, Zustand der Querlenker und Gummilager, sichtbares Spiel oder Beschädigungen an Gelenken, allgemeiner Pflegezustand des Fahrwerksbereichs',
+    maxPhotos: 5
+  },
+  {
+    id: 'freifeld',
+    title: 'Eigener Prüfpunkt',
+    introText: 'Optional: eigene Fotos + Beschreibung, z.B. Unterboden oder Bremsleitungen',
+    hint: 'Falls dir an deinem Fahrzeug etwas Bestimmtes aufgefallen ist (z.B. eine Stelle am Unterboden, verrostete Bremsleitungen, ein Geräusch mit sichtbarer Ursache), kannst du hier Fotos hochladen und kurz beschreiben, worauf geachtet werden soll.',
+    checkPoints: 'Die vom Nutzer beschriebene Stelle bzw. das beschriebene Problem, sowie alles weitere auf den Fotos erkennbare, das für die HU relevant sein könnte',
+    maxPhotos: 5,
+    freeText: true,
+    freeTextPlaceholder: 'z.B. "Anrostung am Unterboden hinten links, Bremsleitung wirkt angerostet"'
+  }
+];
+
+var state = {
+  step: -1, // -1 = Intro, 0..(N-1) = Kategorien, N = Report
+  images: {},   // id -> array of dataURLs (max 5)
+  results: {},  // id -> {status, text}
+  freeText: '',
+  loading: false
+};
+
+var els = {
+  main: document.getElementById('main'),
+  footer: document.getElementById('footer'),
+  primaryBtn: document.getElementById('primaryBtn'),
+  progressTrack: document.getElementById('progressTrack'),
+  stepMeta: document.getElementById('stepMeta')
+};
+
+function buildProgress() {
+  els.progressTrack.innerHTML = '';
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var seg = document.createElement('div');
+    seg.className = 'progress-seg';
+    if (i < state.step) seg.className += ' done';
+    if (i === state.step) seg.className += ' active';
+    els.progressTrack.appendChild(seg);
+  }
+}
+
+function renderIntro() {
+  els.stepMeta.textContent = 'BEVOR DU STARTEST';
+
+  var html = '';
+  html += '<div class="step-title">So funktioniert dein Check</div>';
+  html += '<div class="step-hint">In ' + CATEGORIES.length + ' kurzen Schritten machst du jeweils ein Foto von einem Bereich deines Fahrzeugs. Eine KI gibt dir direkt eine erste Einschätzung — als Vorbereitung auf deinen HU-Termin. Das Ganze dauert ca. 5 Minuten.</div>';
+
+  html += '<div class="intro-list">';
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var cat = CATEGORIES[i];
+    html += '<div class="intro-item">';
+    html += '<div class="intro-num">' + (i + 1) + '</div>';
+    html += '<div class="intro-item-text">';
+    html += '<div class="intro-item-title">' + cat.title + '</div>';
+    html += '<div class="intro-item-desc">' + cat.introText + '</div>';
+    html += '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="intro-tip">Tipp: Du kannst direkt mit der Kamera fotografieren oder vorhandene Fotos aus deiner Mediathek bzw. Dateien-App verwenden. Jeder Schritt kann bei Bedarf übersprungen werden.</div>';
+
+  els.main.innerHTML = html;
+
+  els.footer.innerHTML = '<button class="btn btn-primary" id="startBtn">Los geht\'s</button>';
+  document.getElementById('startBtn').addEventListener('click', function () {
+    state.step = 0;
+    render();
+  });
+}
+
+function render() {
+  buildProgress();
+
+  if (state.step === -1) {
+    renderIntro();
+    return;
+  }
+
+  if (state.step >= CATEGORIES.length) {
+    renderReport();
+    return;
+  }
+
+  var cat = CATEGORIES[state.step];
+  els.stepMeta.textContent = 'SCHRITT ' + (state.step + 1) + ' / ' + CATEGORIES.length + ' · ' + cat.title.toUpperCase();
+
+  var imgs = state.images[cat.id] || [];
+  var result = state.results[cat.id];
+  var maxPhotos = cat.maxPhotos || 5;
+
+  var html = '';
+  html += '<div class="step-title">' + cat.title + '</div>';
+  html += '<div class="step-hint">' + cat.hint + '</div>';
+
+  html += '<div class="photo-grid" id="photoGrid">';
+  for (var pi = 0; pi < imgs.length; pi++) {
+    html += '<div class="photo-tile">';
+    html += '<img src="' + imgs[pi] + '" alt="' + cat.title + ' ' + (pi + 1) + '">';
+    html += '<div class="remove-btn" data-idx="' + pi + '">&times;</div>';
+    html += '</div>';
+  }
+  if (imgs.length < maxPhotos) {
+    html += '<div class="photo-tile add-tile" id="addTile">' + iconCamera() + '</div>';
+  }
+  html += '</div>';
+  html += '<div class="photo-grid-hint">' + imgs.length + ' / ' + maxPhotos + ' Fotos · Foto antippen oder neues hinzufügen</div>';
+
+  if (cat.freeText) {
+    html += '<textarea id="freeTextInput" class="free-text-input" placeholder="' + cat.freeTextPlaceholder + '">' + escapeHtml(state.freeText || '') + '</textarea>';
+  }
+
+  html += '<input type="file" id="fileInput" accept="image/*" multiple>';
+
+  html += '<div class="analysis-status' + (state.loading ? ' visible' : '') + '" id="analysisStatus">';
+  html += '<div class="spinner"></div><div>Analyse läuft …</div>';
+  html += '</div>';
+
+  if (result) {
+    html += '<div class="result-card visible">';
+    html += '<div class="result-status"><span class="status-dot ' + result.status + '"></span>' + statusLabel(result.status) + '</div>';
+    html += '<div class="result-text">' + escapeHtml(result.text) + '</div>';
+    html += '</div>';
+  }
+
+  els.main.innerHTML = html;
+
+  var addTile = document.getElementById('addTile');
+  if (addTile) {
+    addTile.addEventListener('click', function () {
+      document.getElementById('fileInput').click();
+    });
+  }
+  document.getElementById('fileInput').addEventListener('change', onFilesSelected);
+
+  var removeBtns = document.querySelectorAll('.remove-btn');
+  for (var ri = 0; ri < removeBtns.length; ri++) {
+    removeBtns[ri].addEventListener('click', function (e) {
+      var idx = parseInt(e.target.getAttribute('data-idx'), 10);
+      var arr = state.images[cat.id] || [];
+      arr.splice(idx, 1);
+      state.images[cat.id] = arr;
+      state.results[cat.id] = null;
+      if (arr.length > 0) {
+        analyzeImages(cat, arr);
+      } else {
+        render();
+      }
+    });
+  }
+
+  if (cat.freeText) {
+    document.getElementById('freeTextInput').addEventListener('input', function (e) {
+      state.freeText = e.target.value;
+    });
+  }
+
+  // Footer
+  var hasText = cat.freeText && state.freeText && state.freeText.trim().length > 0;
+  var hasContent = imgs.length > 0 || hasText;
+  var textOnlyPending = hasText && imgs.length === 0 && !result;
+
+  var footerHtml = '';
+  if (!hasContent) {
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>' + (cat.freeText ? 'Foto oder Beschreibung hinzufügen' : 'Foto hinzufügen') + '</button>';
+  } else if (state.loading) {
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>Analyse läuft …</button>';
+  } else if (imgs.length > 0 && !result) {
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn">Wird analysiert …</button>';
+  } else if (textOnlyPending) {
+    footerHtml += '<button class="btn btn-primary" id="analyzeTextBtn">Beschreibung analysieren</button>';
+  } else {
+    var label = (state.step === CATEGORIES.length - 1) ? 'Zum Ergebnis' : 'Weiter';
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn">' + label + '</button>';
+  }
+  footerHtml += '<button class="btn-skip" id="skipBtn">Diesen Punkt überspringen</button>';
+  els.footer.innerHTML = footerHtml;
+
+  var pBtn = document.getElementById('primaryBtn');
+  if (pBtn && !pBtn.disabled) {
+    pBtn.addEventListener('click', function () {
+      state.step++;
+      render();
+    });
+  }
+  var analyzeTextBtn = document.getElementById('analyzeTextBtn');
+  if (analyzeTextBtn) {
+    analyzeTextBtn.addEventListener('click', function () {
+      analyzeImages(cat, []);
+    });
+  }
+  document.getElementById('skipBtn').addEventListener('click', function () {
+    state.step++;
+    render();
+  });
+}
+
+function statusLabel(status) {
+  if (status === 'green') return 'Unauffällig';
+  if (status === 'amber') return 'Beobachten';
+  if (status === 'red') return 'Möglicher Mangel';
+  return 'Keine Einschätzung';
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function iconCamera() {
+  return '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a2 2 0 0 1 2-2h1.5l1-1.5h9l1 1.5H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>';
+}
+
+function onFilesSelected(e) {
+  var files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  var cat = CATEGORIES[state.step];
+  var maxPhotos = cat.maxPhotos || 5;
+  var existing = state.images[cat.id] || [];
+  var slots = maxPhotos - existing.length;
+  var toProcess = Math.min(files.length, slots);
+
+  var pending = toProcess;
+  var newImages = [];
+
+  for (var i = 0; i < toProcess; i++) {
+    var reader = new FileReader();
+    reader.onload = (function (idx) {
+      return function (ev) {
+        compressImage(ev.target.result, function (compressed) {
+          newImages[idx] = compressed;
+          pending--;
+          if (pending === 0) {
+            var arr = state.images[cat.id] || [];
+            for (var j = 0; j < newImages.length; j++) arr.push(newImages[j]);
+            state.images[cat.id] = arr;
+            state.results[cat.id] = null;
+            render();
+            analyzeImages(cat, arr);
+          }
+        });
+      };
+    })(i);
+    reader.readAsDataURL(files[i]);
+  }
+}
+
+// Compress image via canvas before sending to API (keeps payload small)
+function compressImage(dataUrl, callback) {
+  var img = new Image();
+  img.onload = function () {
+    var maxDim = 1024;
+    var w = img.width, h = img.height;
+    if (w > h && w > maxDim) { h = Math.round(h * (maxDim / w)); w = maxDim; }
+    else if (h > maxDim) { w = Math.round(w * (maxDim / h)); h = maxDim; }
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    var out = canvas.toDataURL('image/jpeg', 0.7);
+    callback(out);
+  };
+  img.src = dataUrl;
+}
+
+function analyzeImages(cat, dataUrls) {
+  var apiKey = getApiKey();
+  if (!apiKey) {
+    state.results[cat.id] = { status: 'amber', text: 'Kein API-Key gespeichert. Bitte oben rechts auf das Schlüssel-Symbol tippen und den Key eintragen.' };
+    render();
+    return;
+  }
+
+  state.loading = true;
+  render();
+
+  var content = [];
+  for (var i = 0; i < dataUrls.length; i++) {
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: dataUrls[i].split(',')[1] } });
+  }
+
+  var photoHint;
+  if (dataUrls.length === 0) {
+    photoHint = 'Der Nutzer hat zur Kategorie "' + cat.title + '" keine Fotos hochgeladen, sondern nur eine Beschreibung. ';
+  } else if (dataUrls.length > 1) {
+    photoHint = 'Du bekommst ' + dataUrls.length + ' Fotos zur Kategorie "' + cat.title + '". Beziehe deine Einschätzung auf ALLE Fotos zusammen. ';
+  } else {
+    photoHint = 'Du bekommst ein Foto zur Kategorie "' + cat.title + '". ';
+  }
+
+  var systemPrompt = 'Du bist ein erfahrener KFZ-Sachverständiger und unterstützt Fahrzeughalter bei einer Vorab-Einschätzung vor dem Termin zur Hauptuntersuchung (HU). ' +
+    photoHint +
+    'Relevante Prüfpunkte: ' + cat.checkPoints + '. ';
+
+  if (cat.freeText && state.freeText) {
+    systemPrompt += 'Der Nutzer hat folgenden Hinweis gegeben, worauf besonders geachtet werden soll: "' + state.freeText + '". Berücksichtige diesen Hinweis in deiner Einschätzung. ';
+  }
+
+  if (dataUrls.length === 0) {
+    systemPrompt +=
+      'Da keine Fotos vorliegen, kannst du keine visuelle Einschätzung geben. Antworte NUR als JSON, ohne Markdown, ohne Codeblock, in folgendem Format: ' +
+      '{"status": "amber", "text": "Kurze, freundliche Rückmeldung auf Deutsch (1-3 Sätze), die den beschriebenen Punkt aufgreift und empfiehlt, diesen bei der Werkstatt anzusprechen bzw. ggf. noch ein Foto nachzuliefern."}';
+  } else {
+    systemPrompt +=
+      'Bewerte AUSSCHLIESSLICH, was auf den Fotos erkennbar ist. Sei vorsichtig mit Ferndiagnosen und weise bei Unsicherheit darauf hin. ' +
+      'Antworte NUR als JSON, ohne Markdown, ohne Codeblock, in folgendem Format: ' +
+      '{"status": "green|amber|red", "text": "Kurze, verständliche Einschätzung in 1-4 Sätzen auf Deutsch, freundlich und konkret."} ' +
+      '"green" = unauffällig, "amber" = sollte beobachtet bzw. von einer Werkstatt geprüft werden, "red" = wahrscheinlicher Mangel, der bei der HU zur Beanstandung führen könnte. ' +
+      'Wenn die Fotos die Beurteilung nicht zulassen (z.B. unscharf, falscher Bildausschnitt), antworte mit status "amber" und bitte im Text um bessere Fotos.';
+  }
+
+  content.push({ type: "text", text: systemPrompt });
+
+  fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+      "x-api-key": apiKey
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1200,
+      messages: [
+        {
+          role: "user",
+          content: content
+        }
+      ]
+    })
+  })
+  .then(function (res) { return res.json(); })
+  .then(function (data) {
+    if (data && data.error) {
+      throw new Error(data.error.message || 'API-Fehler');
+    }
+    var text = '';
+    if (data && data.content) {
+      for (var i = 0; i < data.content.length; i++) {
+        if (data.content[i].type === 'text') text += data.content[i].text;
+      }
+    }
+    text = text.replace(/```json|```/g, '').trim();
+
+    var parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      parsed = { status: 'amber', text: 'Die Analyse konnte nicht eindeutig ausgewertet werden. Bitte sieh dir die Fotos noch einmal an oder lass diesen Punkt von der Werkstatt prüfen.' };
+    }
+
+    if (!parsed.status || !parsed.text) {
+      parsed = { status: 'amber', text: 'Keine eindeutige Einschätzung möglich. Bitte diesen Punkt bei der Werkstatt ansprechen.' };
+    }
+
+    state.results[cat.id] = parsed;
+    state.loading = false;
+    render();
+  })
+  .catch(function (err) {
+    var msg = 'Die Analyse ist fehlgeschlagen. Du kannst trotzdem fortfahren — dieser Punkt wird im Report als "ungeprüft" markiert.';
+    if (err && err.message && err.message.indexOf('credit') !== -1) {
+      msg = 'API-Guthaben aufgebraucht. Bitte beim Anbieter aufladen.';
+    } else if (err && err.message && (err.message.indexOf('auth') !== -1 || err.message.indexOf('key') !== -1)) {
+      msg = 'API-Key ungültig. Bitte oben rechts auf das Schlüssel-Symbol tippen und Key prüfen.';
+    }
+    state.results[cat.id] = { status: 'amber', text: msg };
+    state.loading = false;
+    render();
+  });
+}
+
+function overallStatus() {
+  var hasRed = false, hasAmber = false;
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var r = state.results[CATEGORIES[i].id];
+    if (!r) continue;
+    if (r.status === 'red') hasRed = true;
+    if (r.status === 'amber') hasAmber = true;
+  }
+  if (hasRed) return 'red';
+  if (hasAmber) return 'amber';
+  return 'green';
+}
+
+function overallLabel(status) {
+  if (status === 'green') return 'Gute Chancen<br>auf den Termin';
+  if (status === 'amber') return 'Ein paar Punkte<br>vorab klären';
+  return 'Vor dem Termin<br>handeln';
+}
+
+function renderReport() {
+  els.stepMeta.textContent = 'AUSWERTUNG';
+
+  var status = overallStatus();
+
+  var html = '';
+  html += '<div class="report-header">';
+  html += '<div class="plakette ' + status + '"><div class="plakette-label">' + overallLabel(status) + '</div></div>';
+  html += '<div class="report-title">Dein Vorab-Check</div>';
+  html += '<div class="report-sub">Einschätzung vor deinem HU-Termin</div>';
+  html += '</div>';
+
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var cat = CATEGORIES[i];
+    var r = state.results[cat.id];
+    html += '<div class="report-item">';
+    html += '<div class="report-item-head"><div class="report-item-name">' + cat.title + '</div>';
+    if (r) {
+      html += '<span class="status-dot ' + r.status + '"></span>';
+    } else {
+      html += '<span class="status-dot" style="background:#d4cfc4"></span>';
+    }
+    html += '</div>';
+    html += '<div class="report-item-text">' + (r ? escapeHtml(r.text) : 'Übersprungen — wird bei der HU regulär geprüft.') + '</div>';
+    html += '</div>';
+  }
+
+  html += '<div class="partner-note">';
+  html += '<strong>Empfehlung deiner Werkstatt</strong>';
+  html += 'Mit diesem Ergebnis bist du gut vorbereitet für deinen HU-Termin bei ' + escapeHtml(partner.name) + '.';
+  if (partner.contact) {
+    html += ' Bei Fragen zu den markierten Punkten helfen wir dir gerne vorab weiter: ' + escapeHtml(partner.contact) + '.';
+  } else {
+    html += ' Bei Fragen zu den markierten Punkten helfen wir dir gerne vorab weiter.';
+  }
+  html += '</div>';
+
+  html += '<div class="disclaimer">Diese Einschätzung basiert auf einer automatisierten Foto-Analyse und ersetzt keine amtliche Prüfung. Sie dient ausschließlich der Vorbereitung auf deinen Termin.</div>';
+
+  els.main.innerHTML = html;
+
+  els.footer.innerHTML =
+    '<button class="btn btn-primary" id="pdfBtn">Report als PDF (1,49 €)</button>' +
+    '<button class="btn-skip" id="restartBtn" style="margin-top:10px;">Neuen Check starten</button>';
+
+  document.getElementById('pdfBtn').addEventListener('click', function () {
+    exportPdf(status);
+  });
+  document.getElementById('restartBtn').addEventListener('click', function () {
+    state.step = -1;
+    state.images = {};
+    state.results = {};
+    state.freeText = '';
+    state.loading = false;
+    render();
+  });
+
+  buildProgress();
+  // mark all as done in report view
+  var segs = els.progressTrack.children;
+  for (var s = 0; s < segs.length; s++) segs[s].className = 'progress-seg done';
+}
+
+function statusColor(status) {
+  if (status === 'green') return [45, 140, 95];
+  if (status === 'amber') return [224, 168, 58];
+  if (status === 'red') return [192, 57, 43];
+  return [212, 207, 196];
+}
+
+function exportPdf(overall) {
+  var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+  if (!jsPDFCtor) {
+    alert('PDF-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen und erneut versuchen.');
+    return;
+  }
+
+  var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
+  var pageW = doc.internal.pageSize.getWidth();
+  var margin = 18;
+  var y = 22;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(26, 35, 50);
+  doc.text('HU-Vorab-Check', margin, y);
+
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(91, 107, 125);
+  var dateStr = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  doc.text('Erstellt am ' + dateStr, margin, y);
+
+  // Overall status badge
+  y += 14;
+  var badgeColor = statusColor(overall);
+  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+  doc.circle(margin + 6, y, 6, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(26, 35, 50);
+  var overallText = overall === 'green' ? 'Gute Chancen auf den HU-Termin'
+    : overall === 'amber' ? 'Einige Punkte vorab klären'
+    : 'Vor dem Termin handeln';
+  doc.text(overallText, margin + 16, y + 1.5);
+
+  y += 12;
+  doc.setDrawColor(228, 224, 216);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, pageW - margin, y);
+  y += 10;
+
+  // Categories
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var cat = CATEGORIES[i];
+    var result = state.results[cat.id];
+    var imgs = state.images[cat.id] || [];
+
+    var blockHeight = 28;
+    if (y + blockHeight > 280) {
+      doc.addPage();
+      y = 22;
+    }
+
+    // Thumbnails (max 5, side by side, scaled down)
+    var thumbSize = 22;
+    var thumbGap = 2;
+    var maxThumbs = Math.min(imgs.length, 3); // PDF zeigt max 3 Thumbnails pro Zeile zur Platzersparnis
+
+    if (imgs.length > 0) {
+      for (var ti = 0; ti < maxThumbs; ti++) {
+        var tSize = maxThumbs > 1 ? 14 : thumbSize;
+        var tY = y + ti * (tSize + thumbGap);
+        try {
+          doc.addImage(imgs[ti], 'JPEG', margin, tY, tSize, tSize);
+        } catch (e) {
+          doc.setDrawColor(228, 224, 216);
+          doc.rect(margin, tY, tSize, tSize);
+        }
+      }
+      var usedThumbSize = maxThumbs > 1 ? (maxThumbs * 14 + (maxThumbs - 1) * thumbGap) : thumbSize;
+    } else {
+      doc.setDrawColor(228, 224, 216);
+      doc.setFillColor(247, 245, 240);
+      doc.rect(margin, y, thumbSize, thumbSize, 'FD');
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text('Übersprungen', margin + 2, y + thumbSize / 2);
+      var usedThumbSize = thumbSize;
+    }
+
+    var textX = margin + thumbSize + 6;
+    var textW = pageW - margin - textX;
+
+    // Title + status dot
+    var dotColor = result ? statusColor(result.status) : [212, 207, 196];
+    doc.setFillColor(dotColor[0], dotColor[1], dotColor[2]);
+    doc.circle(textX + 1.5, y + 3, 1.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(26, 35, 50);
+    doc.text(cat.title, textX + 5, y + 4);
+
+    // Body text
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(91, 107, 125);
+    var bodyText = result ? result.text : 'Übersprungen — wird bei der HU regulär geprüft.';
+    var lines = doc.splitTextToSize(bodyText, textW);
+    doc.text(lines, textX + 5, y + 10);
+
+    var consumed = Math.max(usedThumbSize, 10 + lines.length * 4.2) + 6;
+    y += consumed;
+  }
+
+  // Partner note
+  var partnerText = 'Mit diesem Ergebnis bist du gut vorbereitet für deinen HU-Termin bei ' + partner.name + '.';
+  if (partner.contact) {
+    partnerText += ' Bei Fragen zu den markierten Punkten helfen wir dir gerne vorab weiter: ' + partner.contact + '.';
+  } else {
+    partnerText += ' Bei Fragen zu den markierten Punkten helfen wir dir gerne vorab weiter.';
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  var partnerLines = doc.splitTextToSize(partnerText, pageW - 2 * margin - 10);
+  var partnerBoxHeight = 14 + partnerLines.length * 4.2;
+
+  if (y + partnerBoxHeight + 6 > 280) { doc.addPage(); y = 22; }
+  y += 4;
+  doc.setFillColor(26, 35, 50);
+  doc.roundedRect(margin, y, pageW - 2 * margin, partnerBoxHeight, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(247, 245, 240);
+  doc.text('Empfehlung deiner Werkstatt', margin + 5, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(partnerLines, margin + 5, y + 14);
+  y += partnerBoxHeight + 8;
+
+  // Disclaimer
+  if (y + 16 > 290) { doc.addPage(); y = 22; }
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  var disclaimerLines = doc.splitTextToSize(
+    'Diese Einschätzung basiert auf einer automatisierten Foto-Analyse und ersetzt keine amtliche Prüfung. Sie dient ausschließlich der Vorbereitung auf deinen Termin.',
+    pageW - 2 * margin
+  );
+  doc.text(disclaimerLines, margin, y);
+
+  doc.save('hu-vorab-check.pdf');
+}
+
+// ---------------------------------------------------------
+// API-Key Modal
+// ---------------------------------------------------------
+function openKeyModal() {
+  document.getElementById('keyInput').value = getApiKey();
+  document.getElementById('keyError').textContent = '';
+  document.getElementById('keyModal').className = 'modal-overlay visible';
+}
+function closeKeyModal() {
+  document.getElementById('keyModal').className = 'modal-overlay';
+}
+function saveKeyFromModal() {
+  var val = document.getElementById('keyInput').value.trim();
+  if (val.indexOf('sk-ant-') !== 0) {
+    document.getElementById('keyError').textContent = 'Key muss mit sk-ant- beginnen.';
+    return;
+  }
+  saveApiKey(val);
+  closeKeyModal();
+}
+
+document.getElementById('keyBtn').addEventListener('click', openKeyModal);
+document.getElementById('keyCancelBtn').addEventListener('click', closeKeyModal);
+document.getElementById('keySaveBtn').addEventListener('click', saveKeyFromModal);
+
+// Beim ersten Aufruf direkt zur Key-Eingabe, falls noch keiner gespeichert ist
+if (!getApiKey()) {
+  openKeyModal();
+}
+
+render();
+</script>
+
+</body>
+</html>
