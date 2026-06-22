@@ -1358,23 +1358,51 @@ function renderReport() {
 
   els.main.innerHTML = html;
 
-  // Termin-Button: Text + Style je nach Ampelstatus
-  var terminLabel, terminHref;
-  if (status === 'green') {
-    terminLabel = '\uD83D\uDCC5 Jetzt HU-Termin buchen';
-  } else if (status === 'amber') {
-    terminLabel = '\uD83D\uDCC5 Termin buchen – Mängel vorab klären';
-  } else {
-    terminLabel = '\uD83D\uDCDE Jetzt anrufen – Reparatur besprechen';
-  }
-  terminHref = partner.contact && partner.contact.indexOf('07022') !== -1
-    ? 'tel:+4970222165282'
-    : (partner.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(partner.address) : '#');
+  // ── WhatsApp Termin-Button ──
+  var ampelText = status === 'green' ? '🟢 Grün – HU-bereit'
+                : status === 'amber' ? '🟡 Gelb – Mängel vorhanden'
+                : '🔴 Rot – Erhebliche Mängel';
 
+  // Fahrzeugtyp aus erstem Ergebnis-Text extrahieren (erste 80 Zeichen)
+  var fahrzeugHint = '';
+  var cats = selectedCategories();
+  if (cats.length > 0 && state.results[cats[0].id]) {
+    var txt = state.results[cats[0].id].text || '';
+    fahrzeugHint = txt.substring(0, 80).replace(/\n/g, ' ');
+    if (txt.length > 80) fahrzeugHint += '…';
+  }
+
+  // Kostenspanne sammeln
+  var kostenInfo = '';
+  for (var ki = 0; ki < cats.length; ki++) {
+    var kr = state.results[cats[ki].id];
+    if (kr && kr.costLow && kr.costHigh) {
+      kostenInfo = 'Geschätzter Aufwand: ca. ' + kr.costLow + ' – ' + kr.costHigh + ' €';
+      break;
+    }
+  }
+
+  // WhatsApp Nachricht vorausfüllen
+  var waPhone = '491727409769'; // Test: Uri (später: Steffen +4970222165282)
+  var waMsg = 'Hallo,' +
+    '\n\nich habe gerade den HU-Vorab-Check durchgeführt und würde gerne einen Termin anfragen.' +
+    '\n\n📋 *Mein Check-Ergebnis:*' +
+    '\nStatus: ' + ampelText +
+    (fahrzeugHint ? '\nFahrzeug: ' + fahrzeugHint : '') +
+    (kostenInfo ? '\n' + kostenInfo : '') +
+    '\n\nWann wäre ein Termin bei Ihnen möglich?' +
+    '\n\nVielen Dank!';
+
+  var waUrl = 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waMsg);
+
+  // Button-Farben
   var terminBg = status === 'green' ? 'var(--green)' : status === 'amber' ? 'var(--amber)' : 'var(--red)';
+  var terminLabel = status === 'green' ? '📅 Termin via WhatsApp anfragen'
+                  : status === 'amber' ? '📅 Termin anfragen – Mängel besprechen'
+                  : '📞 Reparatur besprechen – Termin anfragen';
 
   els.footer.innerHTML =
-    '<a href="' + terminHref + '" id="terminBtn" style="display:block;text-align:center;text-decoration:none;padding:16px;border-radius:14px;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;margin-bottom:10px;background:' + terminBg + ';color:#fff;">' + terminLabel + '</a>' +
+    '<a href="' + waUrl + '" id="terminBtn" target="_blank" style="display:block;text-align:center;text-decoration:none;padding:16px;border-radius:14px;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;margin-bottom:10px;background:' + terminBg + ';color:#fff;">' + terminLabel + '</a>' +
     '<button class="btn btn-primary" id="pdfBtn" style="background:var(--ink);color:var(--paper);margin-bottom:10px;">Report als PDF speichern</button>' +
     '<button class="btn-skip" id="restartBtn" style="margin-top:4px;">Neuen Check starten</button>';
 
