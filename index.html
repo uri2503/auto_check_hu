@@ -1358,9 +1358,25 @@ function renderReport() {
 
   els.main.innerHTML = html;
 
+  // Termin-Button: Text + Style je nach Ampelstatus
+  var terminLabel, terminHref;
+  if (status === 'green') {
+    terminLabel = '\uD83D\uDCC5 Jetzt HU-Termin buchen';
+  } else if (status === 'amber') {
+    terminLabel = '\uD83D\uDCC5 Termin buchen – Mängel vorab klären';
+  } else {
+    terminLabel = '\uD83D\uDCDE Jetzt anrufen – Reparatur besprechen';
+  }
+  terminHref = partner.contact && partner.contact.indexOf('07022') !== -1
+    ? 'tel:+4970222165282'
+    : (partner.address ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(partner.address) : '#');
+
+  var terminBg = status === 'green' ? 'var(--green)' : status === 'amber' ? 'var(--amber)' : 'var(--red)';
+
   els.footer.innerHTML =
-    '<button class="btn btn-primary" id="pdfBtn">Report als PDF (1,49 €)</button>' +
-    '<button class="btn-skip" id="restartBtn" style="margin-top:10px;">Neuen Check starten</button>';
+    '<a href="' + terminHref + '" id="terminBtn" style="display:block;text-align:center;text-decoration:none;padding:16px;border-radius:14px;font-family:\'Space Grotesk\',sans-serif;font-weight:700;font-size:16px;margin-bottom:10px;background:' + terminBg + ';color:#fff;">' + terminLabel + '</a>' +
+    '<button class="btn btn-primary" id="pdfBtn" style="background:var(--ink);color:var(--paper);margin-bottom:10px;">Report als PDF speichern</button>' +
+    '<button class="btn-skip" id="restartBtn" style="margin-top:4px;">Neuen Check starten</button>';
 
   document.getElementById('pdfBtn').addEventListener('click', function () {
     exportPdf(status);
