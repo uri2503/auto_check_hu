@@ -832,12 +832,13 @@ var CATEGORIES = [
 ];
 
 var state = {
-  step: -1, // -1 = Auswahl, 0..(N-1) = gewählte Kategorien, N = Report
-  selectedOrder: [], // Array von Kategorie-IDs in Auswahlreihenfolge
-  images: {},   // id -> array of dataURLs (max 5)
-  results: {},  // id -> {status, text}
+  step: -1,          // -1 = Auswahl, 0..(N-1) = Foto-Schritte, 'analyse' = Ladescreen, N = Report
+  selectedOrder: [],
+  images: {},
+  results: {},
   freeText: '',
-  loading: false
+  loading: false,
+  analysisDone: false
 };
 
 function getCategoryById(id) {
@@ -940,6 +941,11 @@ function render() {
     return;
   }
 
+  if (state.step === 'analyse') {
+    renderAnalyseScreen();
+    return;
+  }
+
   var chosen = selectedCategories();
 
   if (state.step >= chosen.length) {
@@ -1007,11 +1013,7 @@ function render() {
       arr.splice(idx, 1);
       state.images[cat.id] = arr;
       state.results[cat.id] = null;
-      if (arr.length > 0 && !cat.freeText) {
-        analyzeImages(cat, arr);
-      } else {
-        render();
-      }
+      render();
     });
   }
 
@@ -1039,12 +1041,11 @@ function render() {
     footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>' + (cat.freeText ? 'Foto oder Beschreibung hinzufügen' : 'Foto hinzufügen') + '</button>';
   } else if (state.loading) {
     footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>Analyse läuft …</button>';
-  } else if (pendingAnalysis && cat.freeText) {
-    footerHtml += '<button class="btn btn-primary" id="analyzeTextBtn">Analysieren</button>';
   } else if (pendingAnalysis) {
-    footerHtml += '<button class="btn btn-primary" id="primaryBtn">Wird analysiert …</button>';
+    footerHtml += '<button class="btn btn-primary" id="analyzeBtn">📸 Alle Fotos analysieren</button>';
   } else {
-    var label = (state.step === chosen.length - 1) ? 'Zum Ergebnis' : 'Weiter';
+    var isLastStep = (state.step === chosen.length - 1);
+    var label = isLastStep ? '🔍 Jetzt alle analysieren' : 'Weiter';
     footerHtml += '<button class="btn btn-primary" id="primaryBtn">' + label + '</button>';
   }
   footerHtml += '<button class="btn-skip" id="skipBtn">Diesen Punkt überspringen</button>';
@@ -1053,14 +1054,21 @@ function render() {
   var pBtn = document.getElementById('primaryBtn');
   if (pBtn && !pBtn.disabled) {
     pBtn.addEventListener('click', function () {
-      state.step++;
-      render();
+      var chosen = selectedCategories();
+      if (state.step === chosen.length - 1) {
+        // Letzter Schritt → Analyse-Screen starten
+        state.step = 'analyse';
+        render();
+      } else {
+        state.step++;
+        render();
+      }
     });
   }
-  var analyzeTextBtn = document.getElementById('analyzeTextBtn');
-  if (analyzeTextBtn) {
-    analyzeTextBtn.addEventListener('click', function () {
-      analyzeImages(cat, imgs);
+  var analyzeBtn = document.getElementById('analyzeBtn');
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', function () {
+      analyzeImages(cat, cat.freeText ? imgs : (state.images[cat.id] || []));
     });
   }
   document.getElementById('skipBtn').addEventListener('click', function () {
@@ -1143,10 +1151,7 @@ function onFilesSelected(e) {
             for (var j = 0; j < newImages.length; j++) arr.push(newImages[j]);
             state.images[cat.id] = arr;
             state.results[cat.id] = null;
-            render();
-            if (!cat.freeText) {
-              analyzeImages(cat, arr);
-            }
+            render(); // Bilder anzeigen, aber KEINE Auto-Analyse
           }
         });
       };
@@ -1313,6 +1318,124 @@ function overallLabel(status) {
   if (status === 'green') return 'Gute Chancen<br>auf den Termin';
   if (status === 'amber') return 'Ein paar Punkte<br>vorab klären';
   return 'Vor dem Termin<br>handeln';
+}
+
+function renderAnalyseScreen() {
+  els.stepMeta.textContent = 'ANALYSE';
+  var chosen = selectedCategories();
+
+  // Ladescreen anzeigen
+  els.main.innerHTML =
+    '<div style="text-align:center;padding:60px 24px 40px;">' +
+    '<div style="font-size:52px;margin-bottom:20px;">🔍</div>' +
+    '<div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:var(--ink);margin-bottom:10px;">Ihre Fotos werden ausgewertet…</div>' +
+    '<div style="font-size:14px;color:var(--steel);margin-bottom:32px;">Die KI analysiert alle ' + chosen.length + ' Prüfbereiche zusammen.<br>Das dauert ca. 10–20 Sekunden.</div>' +
+    '<div id="analyseProgress" style="max-width:300px;margin:0 auto;"></div>' +
+    '</div>';
+
+  els.footer.innerHTML = '<button class="btn btn-primary" disabled>Analyse läuft …</button>';
+
+  // Sequenziell alle Kategorien analysieren
+  var results = {};
+  var idx = 0;
+
+  function analyseNext() {
+    if (idx >= chosen.length) {
+      // Alle fertig → Report
+      state.results = results;
+      state.loading = false;
+      state.step = chosen.length; // → renderReport
+      render();
+      return;
+    }
+
+    var cat = chosen[idx];
+    var imgs = state.images[cat.id] || [];
+
+    // Progress Update
+    var prog = document.getElementById('analyseProgress');
+    if (prog) {
+      var done = idx;
+      var total = chosen.length;
+      var pct = Math.round((done / total) * 100);
+      prog.innerHTML =
+        '<div style="background:#e8e4dc;border-radius:8px;height:8px;overflow:hidden;margin-bottom:12px;">' +
+        '<div style="background:var(--ink);height:100%;width:' + pct + '%;transition:width 0.4s;border-radius:8px;"></div></div>' +
+        '<div style="font-size:13px;color:var(--steel);">⏳ ' + cat.title + ' …</div>';
+    }
+
+    var apiKey = getApiKey();
+    if (!apiKey) {
+      results[cat.id] = { status: 'amber', text: 'Kein API-Key. Bitte oben rechts eingeben.' };
+      idx++; analyseNext(); return;
+    }
+
+    if (imgs.length === 0 && !cat.freeText) {
+      // Übersprungen
+      idx++; analyseNext(); return;
+    }
+
+    var content = [];
+    for (var i = 0; i < imgs.length; i++) {
+      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imgs[i].split(',')[1] } });
+    }
+
+    var photoHint = imgs.length > 1
+      ? 'Du bekommst ' + imgs.length + ' Fotos zur Kategorie "' + cat.title + '". Beziehe deine Einschätzung auf ALLE Fotos zusammen. '
+      : imgs.length === 1 ? 'Du bekommst ein Foto zur Kategorie "' + cat.title + '". '
+      : 'Keine Fotos, nur eine Beschreibung zur Kategorie "' + cat.title + '". ';
+
+    var systemPrompt = 'Du bist ein erfahrener KFZ-Sachverständiger und unterstützt Fahrzeughalter bei einer Vorab-Einschätzung vor dem HU-Termin. ' +
+      photoHint + 'Relevante Prüfpunkte: ' + cat.checkPoints + '. ';
+
+    if (cat.freeText && state.freeText) {
+      systemPrompt += 'Nutzerhinweis: "' + state.freeText + '". ';
+    }
+
+    if (cat.costEstimate) {
+      systemPrompt += 'Bewerte nur was sichtbar ist. Gib zusätzlich eine grobe Kosteneinschätzung (unverbindlich). ' +
+        'Antworte NUR als JSON: {"status":"green|amber|red","text":"1-4 Sätze DE","aufwandskategorie":"klein|mittel|gross","kosten_min":Zahl,"kosten_max":Zahl,"kosten_hinweis":"1 Satz DE"}';
+    } else {
+      systemPrompt += 'Bewerte nur was sichtbar ist. ' +
+        'Antworte NUR als JSON: {"status":"green|amber|red","text":"1-4 Sätze DE"} ' +
+        'green=unauffällig, amber=beobachten/prüfen lassen, red=wahrscheinlicher HU-Mangel.';
+    }
+
+    content.push({ type: 'text', text: systemPrompt });
+
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, messages: [{ role: 'user', content: content }] })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var text = '';
+      if (data && data.content) {
+        for (var i = 0; i < data.content.length; i++) {
+          if (data.content[i].type === 'text') text += data.content[i].text;
+        }
+      }
+      text = text.replace(/```json|```/g, '').trim();
+      var parsed;
+      try { parsed = JSON.parse(text); }
+      catch(e) { parsed = { status: 'amber', text: 'Analyse nicht auswertbar. Bitte bei der Werkstatt ansprechen.' }; }
+      if (!parsed.status) parsed = { status: 'amber', text: 'Keine eindeutige Einschätzung.' };
+      results[cat.id] = parsed;
+      idx++; analyseNext();
+    })
+    .catch(function(err) {
+      results[cat.id] = { status: 'amber', text: 'Analyse fehlgeschlagen. Bitte bei der Werkstatt prüfen lassen.' };
+      idx++; analyseNext();
+    });
+  }
+
+  analyseNext();
 }
 
 function renderReport() {
