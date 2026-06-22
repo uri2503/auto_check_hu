@@ -869,11 +869,13 @@ function buildProgress() {
   els.progressTrack.innerHTML = '';
   var total = state.selectedOrder.length;
   if (total === 0) return;
+  var numStep = (state.step === 'analyse' || state.step === -1) ? -1 : state.step;
   for (var i = 0; i < total; i++) {
     var seg = document.createElement('div');
     seg.className = 'progress-seg';
-    if (i < state.step) seg.className += ' done';
-    if (i === state.step) seg.className += ' active';
+    if (i < numStep) seg.className += ' done';
+    if (i === numStep) seg.className += ' active';
+    if (state.step === 'analyse') seg.className += ' done'; // alle fertig
     els.progressTrack.appendChild(seg);
   }
 }
@@ -954,6 +956,7 @@ function render() {
   }
 
   var cat = chosen[state.step];
+  if (!cat) { render(); return; } // Sicherheitsnetz
   els.stepMeta.textContent = 'SCHRITT ' + (state.step + 1) + ' / ' + chosen.length + ' · ' + cat.title.toUpperCase();
 
   var imgs = state.images[cat.id] || [];
@@ -1036,19 +1039,20 @@ function render() {
   var hasContent = imgs.length > 0 || hasText;
   var pendingAnalysis = hasContent && !result && !state.loading;
 
+  var isLastStep = (state.step === chosen.length - 1);
   var footerHtml = '';
-  if (!hasContent) {
-    footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>' + (cat.freeText ? 'Foto oder Beschreibung hinzufügen' : 'Foto hinzufügen') + '</button>';
-  } else if (state.loading) {
-    footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>Analyse läuft …</button>';
-  } else if (pendingAnalysis) {
-    footerHtml += '<button class="btn btn-primary" id="analyzeBtn">📸 Alle Fotos analysieren</button>';
+  if (state.loading) {
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn" disabled>Lädt …</button>';
+  } else if (!hasContent) {
+    // Noch keine Fotos: Weiter trotzdem erlauben (kann skippen)
+    var lbl = isLastStep ? '🔍 Jetzt alle analysieren' : 'Weiter';
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn">' + lbl + '</button>';
   } else {
-    var isLastStep = (state.step === chosen.length - 1);
-    var label = isLastStep ? '🔍 Jetzt alle analysieren' : 'Weiter';
-    footerHtml += '<button class="btn btn-primary" id="primaryBtn">' + label + '</button>';
+    // Fotos vorhanden: Weiter oder Analysieren
+    var lbl = isLastStep ? '🔍 Jetzt alle analysieren' : 'Weiter →';
+    footerHtml += '<button class="btn btn-primary" id="primaryBtn">' + lbl + '</button>';
   }
-  footerHtml += '<button class="btn-skip" id="skipBtn">Diesen Punkt überspringen</button>';
+  footerHtml += '<button class="btn-skip" id="skipBtn">Überspringen</button>';
   els.footer.innerHTML = footerHtml;
 
   var pBtn = document.getElementById('primaryBtn');
@@ -1065,12 +1069,7 @@ function render() {
       }
     });
   }
-  var analyzeBtn = document.getElementById('analyzeBtn');
-  if (analyzeBtn) {
-    analyzeBtn.addEventListener('click', function () {
-      analyzeImages(cat, cat.freeText ? imgs : (state.images[cat.id] || []));
-    });
-  }
+  // analyzeBtn entfernt – Analyse läuft gesammelt am Ende
   document.getElementById('skipBtn').addEventListener('click', function () {
     state.step++;
     render();
@@ -1344,7 +1343,7 @@ function renderAnalyseScreen() {
       // Alle fertig → Report
       state.results = results;
       state.loading = false;
-      state.step = chosen.length; // → renderReport
+      state.step = chosen.length; // Zahl → renderReport
       render();
       return;
     }
