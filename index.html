@@ -1136,33 +1136,40 @@ function render() {
   if (cat.checklist && cat.checklist.length > 0) {
     var catChecks = state.checks[cat.id] || {};
     var checkedCount = 0;
+    // Vorher zählen für Balken
+    for (var ci = 0; ci < cat.checklist.length; ci++) {
+      if (catChecks[cat.checklist[ci].id] === true) checkedCount++;
+    }
+
+    // ── Wahrscheinlichkeitsbalken ZUERST (sichtbar ohne Scrollen) ──
+    var total = cat.checklist.length;
+    var pct = total > 0 ? Math.round((checkedCount / total) * 90) : 0;
+    var barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    html += '<div class="prob-bar-wrap">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+    html += '<div class="prob-bar-label" style="margin-bottom:0;">Selbst-Check Wahrscheinlichkeit</div>';
+    html += '<div class="prob-value" style="margin-top:0;">' + pct + ' %</div>';
+    html += '</div>';
+    html += '<div class="prob-bar-track"><div class="prob-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>';
+    if (checkedCount === 0) {
+      html += '<div class="prob-hint">Hake ab was du geprüft hast – die Wahrscheinlichkeit steigt mit jedem Punkt.</div>';
+    } else if (checkedCount === total) {
+      html += '<div class="prob-hint">Alle Punkte geprüft – maximale Vorbereitung.</div>';
+    } else {
+      html += '<div class="prob-hint">' + checkedCount + ' von ' + total + ' Punkten geprüft.</div>';
+    }
+    html += '</div>';
+
+    // ── Checkliste darunter ──
     html += '<div class="checklist-wrap">';
     html += '<div class="checklist-title">§29 Selbst-Check – abhaken was geprüft</div>';
     for (var ci = 0; ci < cat.checklist.length; ci++) {
       var citem = cat.checklist[ci];
       var isChecked = catChecks[citem.id] === true;
-      if (isChecked) checkedCount++;
       html += '<div class="checklist-item" data-cat="' + cat.id + '" data-check="' + citem.id + '">';
       html += '<div class="check-box' + (isChecked ? ' checked' : '') + '">' + (isChecked ? '✓' : '') + '</div>';
       html += '<div class="check-label' + (isChecked ? ' checked' : '') + '">' + citem.label + '</div>';
       html += '</div>';
-    }
-    html += '</div>';
-
-    // Wahrscheinlichkeitsbalken
-    var total = cat.checklist.length;
-    var pct = total > 0 ? Math.round((checkedCount / total) * 90) : 0; // max 90%
-    var barColor = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
-    html += '<div class="prob-bar-wrap">';
-    html += '<div class="prob-bar-label">Wahrscheinlichkeit positiver HU-Prüfung für diesen Bereich</div>';
-    html += '<div class="prob-bar-track"><div class="prob-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>';
-    html += '<div class="prob-value">' + pct + ' %</div>';
-    if (checkedCount === 0) {
-      html += '<div class="prob-hint">Hake ab was du geprüft hast – die Wahrscheinlichkeit steigt mit jedem Punkt.</div>';
-    } else if (checkedCount === total) {
-      html += '<div class="prob-hint">Alle Punkte geprüft – maximale Vorbereitung für diesen Bereich.</div>';
-    } else {
-      html += '<div class="prob-hint">' + checkedCount + ' von ' + total + ' Punkten geprüft.</div>';
     }
     html += '</div>';
   }
@@ -1693,6 +1700,32 @@ function renderReport() {
     html += '</div>';
     html += '<div class="report-item-text">' + (r ? escapeHtml(r.text) : 'Übersprungen — wird bei der HU regulär geprüft.') + '</div>';
     if (r) html += renderCostEstimate(r);
+
+    // Checklisten-Ergebnisse im Report ausgeben
+    if (cat.checklist && cat.checklist.length > 0) {
+      var catChecks = state.checks[cat.id] || {};
+      var checkedItems = [];
+      var uncheckedItems = [];
+      for (var ci = 0; ci < cat.checklist.length; ci++) {
+        var citem = cat.checklist[ci];
+        if (catChecks[citem.id]) checkedItems.push(citem.label);
+        else uncheckedItems.push(citem.label);
+      }
+      if (checkedItems.length > 0 || uncheckedItems.length > 0) {
+        html += '<div style="margin-top:10px;border-top:1px solid #e8e4dc;padding-top:10px;">';
+        html += '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--steel);margin-bottom:8px;">Selbst-Check Ergebnis</div>';
+        for (var k = 0; k < checkedItems.length; k++) {
+          html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;font-size:12px;color:var(--green);">';
+          html += '<span style="flex-shrink:0;font-weight:700;">✓</span><span>' + escapeHtml(checkedItems[k]) + '</span></div>';
+        }
+        for (var k = 0; k < uncheckedItems.length; k++) {
+          html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:4px;font-size:12px;color:#bbb;">';
+          html += '<span style="flex-shrink:0;">○</span><span>' + escapeHtml(uncheckedItems[k]) + '</span></div>';
+        }
+        html += '</div>';
+      }
+    }
+
     html += '</div>';
   }
 
