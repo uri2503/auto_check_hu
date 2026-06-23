@@ -847,14 +847,6 @@ function trackLead(event) {
   }).catch(function() {});
 }
 
-// KZ + HU-Datum aus URL übernehmen
-(function readUrlParams() {
-  var params = new URLSearchParams(window.location.search);
-  var kz = params.get('kz') || '';
-  var hu = params.get('hu') || '';
-  state.kennzeichen = kz ? kz.toUpperCase() : '';
-  state.huFaellig   = hu || '';
-})();
 
 // Partner-Branding anwenden: Logo + Akzentfarbe
 (function applyPartnerBranding() {
@@ -991,6 +983,15 @@ var state = {
   kennzeichen: '',   // aus URL ?kz=
   huFaellig: ''      // aus URL ?hu=
 };
+
+// KZ + HU-Datum aus URL übernehmen (nach state-Deklaration!)
+(function readUrlParams() {
+  var params = new URLSearchParams(window.location.search);
+  var kz = params.get('kz') || '';
+  var hu = params.get('hu') || '';
+  state.kennzeichen = kz ? kz.toUpperCase() : '';
+  state.huFaellig   = hu || '';
+})();
 
 function getCategoryById(id) {
   for (var i = 0; i < CATEGORIES.length; i++) {
