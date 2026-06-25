@@ -1545,13 +1545,14 @@ function trackLead(kennzeichen, huDatum, event) {
 }
 
 // ── KZ-EINGABE LOGIK ──
+window.addEventListener('load', function() {
 (function initKzBlock() {
   var kzInput    = document.getElementById('kzInput');
   var huDate     = document.getElementById('huDateInput');
   var startBtn   = document.getElementById('kzStartBtn');
   var skipLink   = document.getElementById('kzSkipLink');
 
-  if (!kzInput) return; // Sicherheit falls Element nicht gefunden
+  if (!kzInput) { console.warn('kzInput nicht gefunden'); return; }
 
   var TOOL_URL = 'https://uri2503.github.io/auto_check_hu/?partner=station1';
 
@@ -1583,6 +1584,7 @@ function trackLead(kennzeichen, huDatum, event) {
     window.location.href = TOOL_URL;
   });
 })();
+}); // window.load
 </script>
 </body>
 </html>
